@@ -48,7 +48,6 @@ st.set_page_config(
 
 CSS = """
 <style>
-#MainMenu {visibility: hidden;}
 footer {visibility: hidden;}
 
 html, body, [class*="css"]  {
