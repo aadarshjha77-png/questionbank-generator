@@ -132,6 +132,10 @@ st.markdown(CSS, unsafe_allow_html=True)
 
 settings = load_settings()
 
+ENV_KEY = os.getenv("OPENAI_API_KEY")
+if ENV_KEY:
+    settings["openai"]["api_key"] = ENV_KEY
+
 OPENAI_KEY = os.getenv("OPENAI_API_KEY", "").strip()
 if not OPENAI_KEY:
     OPENAI_KEY = str(settings.get("openai", {}).get("api_key", "")).strip()
