@@ -1,0 +1,84 @@
+openai:
+  api_key: ""
+  model: "gpt-5-2025-08-07"
+  max_output_tokens: 12000
+
+generation:
+  default_questions_per_chapter: 3
+  min_questions_per_chapter: 1
+  max_questions_per_chapter: 20
+
+chapter_split:
+  heading_patterns:
+    - "(?im)^\\s*chapter\\s+\\d+[:.\\-\\s].*$"
+    - "(?im)^\\s*\\d+\\.\\s+[A-Z][^\\n]{8,}$"
+  min_chapter_chars: 1200
+
+prompts:
+  system: |
+    You are an expert exam question setter.
+    You generate refined, syllabus-aligned, student-friendly questions.
+
+  user_template: |
+    You are generating questions using ONLY the chapter content below.
+
+    User topic/focus:
+    {topic}
+
+    Chapter title:
+    {chapter_title}
+
+    Chapter content:
+    {chapter_text}
+
+    Requirements:
+    1) Generate exactly {num_questions} questions.
+    2) Use this chapter content as the primary source of truth.
+    3) Cover conceptual understanding, applied reasoning, and edge cases relevant to the topic.
+    4) Include a balanced difficulty spread (easy, medium, hard).
+    5) Each question must be self-contained and unambiguous.
+    6) Avoid duplicate or near-duplicate questions.
+    7) If the topic is only partially present in the chapter, still generate the best possible chapter-grounded questions.
+    8) Output MUST be ONLY a numbered list of questions.
+       No answers.
+       No headings.
+       No markdown.
+
+  mcq_template: |
+   You are generating MCQs using ONLY the chapter content below.
+
+   Topic:
+   {topic}
+
+   Chapter:
+   {chapter_title}
+
+   Content:
+   {chapter_text}
+
+   Requirements:
+   1) Generate exactly {num_questions} MCQs
+   2) Only ONE correct answer
+   3) Questions should be exam-level and tricky
+   4) No duplicate questions
+   5)Do NOT write options in same line
+   6)Each option must be on new line
+   7)Do NOT merge question and options
+   8)Keep spacing clean
+   9)Do NOT include answer unless asked
+
+   Return JSON:
+
+   {
+    "chapter_title": "string",
+    "topic": "string",
+    "questions": [
+      {
+        "id": 1,
+        "difficulty": "easy|medium|hard",
+        "question": "string",
+        "options": ["A", "B", "C", "D"],
+        "correct_answer": "string"
+      }
+    ]
+   }
