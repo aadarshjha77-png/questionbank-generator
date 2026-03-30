@@ -568,19 +568,23 @@ elif st.session_state.step == 2:
 
         if selected_chapter_obj:
 
+        
             if "topics_cache" not in st.session_state:
                 st.session_state.topics_cache = {}
 
             key = selected_chapter_obj.title
 
             if key not in st.session_state.topics_cache:
-                with st.spinner("Extracting topics using AI..."):
-                    topics = extract_topics_with_gpt(
-                        client,
-                        settings["openai"]["model"],
-                        selected_chapter_obj.text
-                    )
-                    st.session_state.topics_cache[key] = topics
+                topics = extract_topics_with_gpt(
+                    client,
+                    settings["openai"]["model"],
+                    selected_chapter_obj.text
+                )
+                st.session_state.topics_cache[key] = topics
+
+            topics = st.session_state.topics_cache[key]
+
+            selected_topic = st.selectbox("Select Topic", topics)
                     
             selected_topic = st.selectbox("Select Topic", topics)
 
