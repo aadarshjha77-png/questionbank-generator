@@ -12,6 +12,63 @@ from utils.pdf_parser import Chapter, extract_chapters_from_pdf
 
 import base64
 
+from collections import Counter
+
+def extract_topics_with_gpt(client, model, chapter_text):
+    prompt = f"""
+Extract 7 important topics from the following chapter.
+
+Chapter Content:
+{chapter_text[:4000]}
+
+Instructions:
+- Return only topic names
+- Each topic on a new line
+- No numbering
+- No explanation
+"""
+
+    response = client.responses.create(
+        model=model,
+        input=[
+            {
+                "role": "user",
+                "content": [{"type": "input_text", "text": prompt}]
+            }
+        ]
+    )
+
+    raw = response.output_text.strip()
+
+    # clean topics
+    topics = [t.strip("-•1234567890. ") for t in raw.split("\n") if t.strip()]
+
+    return topics if topics else ["General"]
+
+def extract_topics_from_text(text, top_n=7):
+    # simple keyword extraction (frequency based)
+
+    # text clean
+    text = text.lower()
+    text = re.sub(r'[^a-z\s]', ' ', text)
+
+    words = text.split()
+
+    # common useless words remove
+    stopwords = set([
+        "the", "is", "and", "of", "to", "in", "a", "for", "on", "with",
+        "as", "by", "an", "be", "this", "that", "are", "or", "from"
+    ])
+
+    words = [w for w in words if w not in stopwords and len(w) > 4]
+
+    freq = Counter(words)
+
+    # top keywords
+    topics = [word.capitalize() for word, _ in freq.most_common(top_n)]
+
+    return topics if topics else ["General"]
+
 def load_image_base64(path):
     with open(path, "rb") as f:
         return base64.b64encode(f.read()).decode()
@@ -134,6 +191,11 @@ settings = load_settings()
 ENV_KEY = os.getenv("OPENAI_API_KEY")
 if ENV_KEY:
     settings["openai"]["api_key"] = ENV_KEY
+
+from openai import OpenAI
+
+client = OpenAI(api_key=settings["openai"]["api_key"])
+model = settings["openai"]["model"]
 
 OPENAI_KEY = os.getenv("OPENAI_API_KEY", "").strip()
 if not OPENAI_KEY:
@@ -499,13 +561,35 @@ elif st.session_state.step == 2:
 
         st.markdown('<div class="qb-step">Step 4 — Any Specific Topic / Focus </div>', unsafe_allow_html=True)
 
-        st.session_state.topic = st.text_area(
-            "",
-            value=st.session_state.topic,
-            placeholder="Example: focus on tricky viva questions",
-            height=100,
+        selected_chapter_obj = next(
+            (c for c in st.session_state.chapters if c.title in st.session_state.selected_titles),
+            None
         )
 
+        if selected_chapter_obj:
+
+            if "topics_cache" not in st.session_state:
+                st.session_state.topics_cache = {}
+
+            key = selected_chapter_obj.title
+
+            if key not in st.session_state.topics_cache:
+                with st.spinner("Extracting topics using AI..."):
+                    topics = extract_topics_with_gpt(
+                        client,
+                        settings["openai"]["model"],
+                        selected_chapter_obj.text
+                    )
+                    st.session_state.topics_cache[key] = topics
+                    
+            selected_topic = st.selectbox("Select Topic", topics)
+
+            custom_topic = st.text_input("Or type your own topic")
+
+            topic = custom_topic if custom_topic else selected_topic
+
+            st.session_state["topic"] = topic
+        
         st.write("")
 
         st.markdown('<div class="qb-step">Step 5 — Choose No.of Questions </div>', unsafe_allow_html=True)
