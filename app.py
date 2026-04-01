@@ -259,28 +259,6 @@ html, body, [class*="css"]  {
 
 st.markdown(CSS, unsafe_allow_html=True)
 
-st.markdown(f"""
-<div class="qb-hero">
-
-  <div class="qb-top-img">
-    <img src="data:image/png;base64,{img_base64}" />
-  </div>
-
-  <h1 class="qb-title">AI QUESTION BANK GENERATOR</h1>
-
-  <div>
-    <span class="qb-pill">📘 AI NLP-BASED</span>
-    <span class="qb-pill">🤖 CHATBOT BASED UI</span>
-  </div>
-
-  <div class="qb-sub">→ Upload PDF</div>
-  <div class="qb-sub">→ Select chapters</div>
-  <div class="qb-sub">→ Get refined exam questions</div>
-
-</div>
-""", unsafe_allow_html=True)
-
-
 # ============================================================
 # Settings
 # ============================================================
