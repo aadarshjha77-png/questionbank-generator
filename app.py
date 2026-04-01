@@ -131,7 +131,7 @@ html, body, [class*="css"]  {
   max-width: 100%;
   height: auto;
   border-radius: 20px;
-  box-shadow: 0 0 40px rgba(255,255,255,0.2);
+  box-shadow: 0 0 150px rgba(255,255,255,10);
 }
 
 /* 🔥 HERO RESPONSIVE FIX */
@@ -486,9 +486,7 @@ st.markdown(f"""
     <span class="qb-pill">📘 AI NLP-BASED</span>
     <span class="qb-pill">🤖 CHATBOT BASED UI</span>
   </div>
-  <div class="qb-sub">→ Upload PDF</div>
-  <div class="qb-sub">→ Select chapters</div>
-  <div class="qb-sub">→ Get refined exam questions</div>
+
 </div>
 
 """, unsafe_allow_html=True)
