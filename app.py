@@ -113,6 +113,21 @@ html, body, [class*="css"]  {
 
 .block-container { padding-top: 3.5rem; padding-bottom: 2rem; }
 
+/* 🔥 TOP CENTER IMAGE */
+.qb-top-img {
+  width: 100%;
+  text-align: center;
+  margin-bottom: 15px;
+}
+
+.qb-top-img img {
+  width: 120px;
+  max-width: 100%;
+  height: auto;
+  border-radius: 20px;
+  box-shadow: 0 0 40px rgba(255,255,255,0.2);
+}
+
 /* 🔥 HERO RESPONSIVE FIX */
 .qb-hero {
   display: flex;
@@ -224,11 +239,40 @@ html, body, [class*="css"]  {
 .qb-hero {
   padding: 20px;
 }
+.qb-top-img img {
+  transition: transform 0.3s ease;
+}
+
+.qb-top-img img:hover {
+  transform: scale(1.05);
+}
 
 .qb-muted { opacity: 0.75; }
 </style>
 """
+
 st.markdown(CSS, unsafe_allow_html=True)
+
+st.markdown(f"""
+<div class="qb-hero">
+
+  <div class="qb-top-img">
+    <img src="data:image/png;base64,{img_base64}" />
+  </div>
+
+  <h1 class="qb-title">AI QUESTION BANK GENERATOR</h1>
+
+  <div>
+    <span class="qb-pill">📘 AI NLP-BASED</span>
+    <span class="qb-pill">🤖 CHATBOT BASED UI</span>
+  </div>
+
+  <div class="qb-sub">→ Upload PDF</div>
+  <div class="qb-sub">→ Select chapters</div>
+  <div class="qb-sub">→ Get refined exam questions</div>
+
+</div>
+""", unsafe_allow_html=True)
 
 
 # ============================================================
