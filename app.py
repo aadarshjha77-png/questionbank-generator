@@ -16,7 +16,7 @@ def load_image_base64(path):
     with open(path, "rb") as f:
         return base64.b64encode(f.read()).decode()
 
-img_base64 = load_image_base64("ai_hero.png")  
+img_base64 = load_image_base64("assets/ai_hero.png")  
 
 from collections import Counter
 
