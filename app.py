@@ -12,6 +12,12 @@ from utils.pdf_parser import Chapter, extract_chapters_from_pdf
 
 import base64
 
+def load_image_base64(path):
+    with open(path, "rb") as f:
+        return base64.b64encode(f.read()).decode()
+
+img_base64 = load_image_base64("ai_hero.png")  
+
 from collections import Counter
 
 def extract_topics_with_gpt(client, model, chapter_text):
