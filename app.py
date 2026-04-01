@@ -495,31 +495,6 @@ Rules:
 # Header
 # ============================================================
 
-img_base64 = load_image_base64("assets/ai_hero.png")
-
-st.markdown(f"""
-<div class="qb-hero">
-
-  <div class="qb-hero-left">
-    <h1 class="qb-title">AI QUESTION BANK GENERATOR</h1>
-    <div>
-      <span class="qb-pill">📘 AI NLP-BASED</span>
-      <span class="qb-pill">🤖 CHATBOT BASED UI</span>
-    </div>
-    <div class="qb-sub">→ Upload PDF</div>
-    <div class="qb-sub">→ Select chapters</div>
-    <div class="qb-sub">→ Get refined exam questions</div>
-  </div>
-
-  <div class="qb-hero-right">
-      <img src="data:image/png;base64,{img_base64}" style="max-width:100%;">
-  </div>
-
-</div>
-""", unsafe_allow_html=True)
-
-st.write("")
-
 
 # ============================================================
 # Top Controls
