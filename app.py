@@ -909,7 +909,6 @@ elif st.session_state.step == 2:
 
         st.write("")
 
-        st.markdown("###📥 Export Questions")
 
         if "generated_questions" in st.session_state:
 
