@@ -14,28 +14,32 @@ This app lets a user:
 - `utils/pdf_parser.py`: PDF text extraction + chapter splitting
 - `utils/question_generator.py`: OpenAI API call and structured response parsing
 
-## Setup
-
-```bash
-python -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-```
-
-Update `config/settings.yaml`:
-- `openai.api_key`: your key
-- `openai.model`: any supported model you want
-- optional: temperature, output tokens, chapter rules, prompt template
-
-## Run
-
-```bash
-streamlit run app.py
-```
-
 ## Notes
 
 - The app processes the uploaded PDF one chapter/segment at a time.
 - Chapter detection first parses the Contents page (TOC) and maps chapter page ranges.
 - If TOC parsing fails, it falls back to regex heading split and then segment split.
 - Output can be downloaded as JSON and Markdown.
+
+# 🤖 AI Question Bank Generator
+
+An intelligent web application that generates exam-ready questions from uploaded PDFs using AI. Built with Streamlit, this system supports user authentication, analytics dashboard, and export features.
+
+# 🚀 Features
+
+- 🔐 User Login & Signup System
+- 👑 Admin Dashboard (Analytics)
+- 📄 Upload PDF & Extract Chapters
+- 🤖 AI-based Question Generation (Descriptive + MCQ)
+- 💬 Chat-based UI (Ask & Answer questions)
+- 📊 User Analytics Dashboard
+- 📥 Download Questions as CSV
+- 📈 Track Most Used Topics & Active Users
+
+## 🧠 Tech Stack
+
+- Python
+- Streamlit
+- OpenAI API
+- SQLite Database
+- Pandas
