@@ -12,102 +12,186 @@ from utils.pdf_parser import Chapter, extract_chapters_from_pdf
 
 import base64
 
-def load_image_base64(path):
-    with open(path, "rb") as f:
-        return base64.b64encode(f.read()).decode()
+import sqlite3
+from datetime import datetime
 
-img_base64 = load_image_base64("assets/ai_hero.png")  
+import pandas as pd
 
-from collections import Counter
+# DB connect
+conn = sqlite3.connect("users.db", check_same_thread=False)
+c = conn.cursor()
 
-def extract_topics_with_gpt(client, model, chapter_text):
-    prompt = f"""
-Extract 7 important topics from the following chapter.
-
-Chapter Content:
-{chapter_text[:4000]}
-
-Instructions:
-- Return only topic names
-- Each topic on a new line
-- No numbering
-- No explanation
-"""
-
-    response = client.responses.create(
-        model=model,
-        input=[
-            {
-                "role": "user",
-                "content": [{"type": "input_text", "text": prompt}]
-            }
-        ]
-    )
-
-    raw = response.output_text.strip()
-
-    # clean topics
-    topics = [t.strip("-•1234567890. ") for t in raw.split("\n") if t.strip()]
-
-    return topics if topics else ["General"]
-
-def extract_topics_from_text(text, top_n=7):
-    # simple keyword extraction (frequency based)
-
-    # text clean
-    text = text.lower()
-    text = re.sub(r'[^a-z\s]', ' ', text)
-
-    words = text.split()
-
-    # common useless words remove
-    stopwords = set([
-        "the", "is", "and", "of", "to", "in", "a", "for", "on", "with",
-        "as", "by", "an", "be", "this", "that", "are", "or", "from"
-    ])
-
-    words = [w for w in words if w not in stopwords and len(w) > 4]
-
-    freq = Counter(words)
-
-    # top keywords
-    topics = [word.capitalize() for word, _ in freq.most_common(top_n)]
-
-    return topics if topics else ["General"]
-
-def load_image_base64(path):
-    with open(path, "rb") as f:
-        return base64.b64encode(f.read()).decode()
-
-if "pdf_bytes" not in st.session_state:
-    st.session_state.pdf_bytes = None
-
-if "chapters" not in st.session_state:
-    st.session_state.chapters = []
-
-if "has_toc" not in st.session_state:
-    st.session_state.has_toc = False
-
-@st.cache_data(show_spinner=False)
-def detect_chapters_cached(file_bytes, heading_patterns, min_chars):
-    chapters, has_toc = extract_chapters_from_pdf(
-        file_bytes=file_bytes,
-        heading_patterns=heading_patterns,
-        min_chapter_chars=min_chars
-    )
-    return chapters, has_toc
-
-
-# ============================================================
-# Page Config + Styles
-# ============================================================
-
-st.set_page_config(
-    page_title="AI QUESTION BANK GENERATOR",
-    page_icon="🤖",
-    layout="wide",
-    initial_sidebar_state="collapsed",
+# Table create
+c.execute("""
+CREATE TABLE IF NOT EXISTS users (
+    username TEXT,
+    password TEXT
 )
+""")
+
+c.execute("""
+CREATE TABLE IF NOT EXISTS question_logs (
+    username TEXT,
+    topic TEXT,
+    timestamp TEXT
+)
+""")
+
+c.execute("""
+CREATE TABLE IF NOT EXISTS login_logs (
+    username TEXT,
+    time TEXT
+)
+""")
+
+conn.commit()
+
+# session init
+if "logged_in" not in st.session_state:
+    st.session_state.logged_in = False
+
+if "username" not in st.session_state:
+    st.session_state.username = None
+
+if "is_admin" not in st.session_state:
+    st.session_state.is_admin = False
+
+# NOT LOGGED IN → LOGIN + SIGNUP
+if not st.session_state.logged_in:
+
+    tab1, tab2 = st.tabs(["Log In", "Sign Up"])
+
+    # LOGIN TAB
+    with tab1:
+        st.title("🔐 Welcome Back!")
+
+        username = st.text_input("Username", key="login_user")
+        password = st.text_input("Password", type="password", key="login_pass")
+
+        if st.button("Login", key="login_btn"):
+
+            username = username.strip().lower()
+            password = password.strip()
+
+            # 🔥 ADMIN LOGIN
+            if username == "admin" and password == "7777":
+                st.session_state.logged_in = True
+                st.session_state.username = username
+                st.session_state.is_admin = True
+
+                c.execute(
+                    "INSERT INTO login_logs VALUES (?, ?)",
+                    (username, str(datetime.now()))
+                )
+                conn.commit()
+                st.success("Admin login successful")
+                st.rerun()
+
+            # 🔥 USER LOGIN FROM DB
+            c.execute(
+                "SELECT * FROM users WHERE username=? AND password=?",
+                (username, password)
+            )
+            result = c.fetchone()
+
+            if result:
+                st.session_state.logged_in = True
+                st.session_state.username = username
+
+                c.execute(
+                    "INSERT INTO login_logs VALUES (?, ?)",
+                    (username, str(datetime.now()))
+                )
+                conn.commit()
+
+                st.success("Login successful")
+                st.rerun()
+            else:
+                st.error("Invalid credentials")
+
+    # SIGNUP TAB
+    with tab2:
+        st.title("📝 Let's Get Started")
+
+        new_user = st.text_input("New Username", key="reg_user")
+        new_pass = st.text_input("New Password", type="password", key="reg_pass")
+
+        if st.button("Create Account", key="signup_btn"):
+
+            new_user = new_user.strip().lower()
+            new_pass = new_pass.strip()
+
+            c.execute("INSERT INTO users VALUES (?, ?)", (new_user, new_pass))
+            conn.commit()
+
+            st.success("Account created!")
+
+    st.stop()  
+
+import pandas as pd
+
+if st.session_state.get("show_analytics") and st.session_state.is_admin:
+
+    st.title("📊 User Analytics Dashboard")
+
+    # ===============================
+    # 🔥 1. LOGIN ANALYTICS
+    # ===============================
+    st.subheader("🔐 Login Analytics")
+
+    c.execute("SELECT username, COUNT(*) FROM login_logs GROUP BY username")
+    data = c.fetchall()
+
+    df = pd.DataFrame(data, columns=["User", "Login Count"])
+    st.bar_chart(df.set_index("User"))
+
+    # ===============================
+    # 🔥 2. ACTIVE USERS (TODAY)
+    # ===============================
+    st.subheader("🟢 Active Users (Today)")
+
+    c.execute("""
+    SELECT COUNT(DISTINCT username)
+    FROM login_logs
+    WHERE date(time) = date('now')
+    """)
+
+    active_users = c.fetchone()[0]
+    st.metric("Active Users Today", active_users)
+
+    # ===============================
+    # 🔥 3. QUESTION GENERATION ANALYTICS
+    # ===============================
+    st.subheader("📝 Question Generation Analytics")
+
+    c.execute("""
+    SELECT username, COUNT(*) 
+    FROM question_logs 
+    GROUP BY username
+    """)
+
+    data = c.fetchall()
+    df = pd.DataFrame(data, columns=["User", "Questions Generated"])
+
+    st.bar_chart(df.set_index("User"))
+
+    # ===============================
+    # 🔥 4. MOST USED TOPICS
+    # ===============================
+    st.subheader("🔥 Most Used Topics")
+
+    c.execute("""
+    SELECT topic, COUNT(*) 
+    FROM question_logs 
+    GROUP BY topic
+    ORDER BY COUNT(*) DESC
+    """)
+
+    data = c.fetchall()
+    df = pd.DataFrame(data, columns=["Topic", "Usage Count"])
+
+    st.bar_chart(df.set_index("Topic"))
+    st.stop() 
 
 CSS = """
 <style>
@@ -257,7 +341,132 @@ html, body, [class*="css"]  {
 </style>
 """
 
+# SIDEBAR
+st.sidebar.title("👤 ADMIN PANEL")
+
+if st.session_state.is_admin:
+    st.sidebar.success(" ADMIN MODE")
+else:
+    st.sidebar.info(f"USER : {st.session_state.username}")
+
+if st.session_state.username == "admin":
+    if st.sidebar.button("View Login History"):
+        c.execute("SELECT * FROM login_logs")
+        data = c.fetchall()
+        st.subheader("📊 Login History")
+        st.table(data)
+
+if st.session_state.is_admin:
+    if st.sidebar.button("📊 Analytics Dashboard"):
+        st.session_state.show_analytics = True
+
+if st.sidebar.button("Logout"):
+    st.session_state.logged_in = False
+    st.session_state.username = None
+    st.rerun()
+
+
+#  ORIGINAL APP START 
 st.markdown(CSS, unsafe_allow_html=True)
+
+
+def load_image_base64(path):
+    with open(path, "rb") as f:
+        return base64.b64encode(f.read()).decode()
+
+img_base64 = load_image_base64("assets/ai_hero.png")  
+
+from collections import Counter
+
+def extract_topics_with_gpt(client, model, chapter_text):
+    prompt = f"""
+Extract 7 important topics from the following chapter.
+
+Chapter Content:
+{chapter_text[:4000]}
+
+Instructions:
+- Return only topic names
+- Each topic on a new line
+- No numbering
+- No explanation
+"""
+
+    response = client.responses.create(
+        model=model,
+        input=[
+            {
+                "role": "user",
+                "content": [{"type": "input_text", "text": prompt}]
+            }
+        ]
+    )
+
+    raw = response.output_text.strip()
+
+    # clean topics
+    topics = [t.strip("-•1234567890. ") for t in raw.split("\n") if t.strip()]
+
+    return topics if topics else ["General"]
+
+def extract_topics_from_text(text, top_n=7):
+    # simple keyword extraction (frequency based)
+
+    # text clean
+    text = text.lower()
+    text = re.sub(r'[^a-z\s]', ' ', text)
+
+    words = text.split()
+
+    # common useless words remove
+    stopwords = set([
+        "the", "is", "and", "of", "to", "in", "a", "for", "on", "with",
+        "as", "by", "an", "be", "this", "that", "are", "or", "from"
+    ])
+
+    words = [w for w in words if w not in stopwords and len(w) > 4]
+
+    freq = Counter(words)
+
+    # top keywords
+    topics = [word.capitalize() for word, _ in freq.most_common(top_n)]
+
+    return topics if topics else ["General"]
+
+def load_image_base64(path):
+    with open(path, "rb") as f:
+        return base64.b64encode(f.read()).decode()
+
+if "pdf_bytes" not in st.session_state:
+    st.session_state.pdf_bytes = None
+
+if "chapters" not in st.session_state:
+    st.session_state.chapters = []
+
+if "has_toc" not in st.session_state:
+    st.session_state.has_toc = False
+
+@st.cache_data(show_spinner=False)
+def detect_chapters_cached(file_bytes, heading_patterns, min_chars):
+    chapters, has_toc = extract_chapters_from_pdf(
+        file_bytes=file_bytes,
+        heading_patterns=heading_patterns,
+        min_chapter_chars=min_chars
+    )
+    return chapters, has_toc
+
+
+# ============================================================
+# Page Config + Styles
+# ============================================================
+
+st.set_page_config(
+    page_title="AI QUESTION BANK GENERATOR",
+    page_icon="🤖",
+    layout="wide",
+    initial_sidebar_state="collapsed",
+)
+
 
 # ============================================================
 # Settings
@@ -700,6 +909,27 @@ elif st.session_state.step == 2:
 
         st.write("")
 
+        st.markdown("###📥 Export Questions")
+
+        if "generated_questions" in st.session_state:
+
+            text = st.session_state.generated_questions
+ 
+            questions = [q.strip() for q in text.split("\n") if q.strip() != ""]
+
+            df = pd.DataFrame({
+                "Questions": questions
+            })
+
+            csv = df.to_csv(index=False).encode("utf-8")
+
+            st.download_button(
+                label="⬇️ Download Questions as CSV",
+                data=csv,
+                file_name=f"{st.session_state.topic}_questions.csv",
+                mime="text/csv"
+            )
+
         # STEP 1: Select Mode (ADD HERE)
         mode = st.radio(
            "Select Question Type",
@@ -771,6 +1001,12 @@ elif st.session_state.step == 2:
                         ],
                     )
 
+                    c.execute(
+                        "INSERT INTO question_logs VALUES (?, ?, ?)",
+                        (st.session_state.username, st.session_state.topic, str(datetime.now()))
+                    )
+                    conn.commit()
+
                     text = (resp.output_text or "").strip()
                     
                     if not text:
@@ -800,6 +1036,7 @@ elif st.session_state.step == 2:
                 final_text = format_mcq(final_text)
 
                 push_chat("assistant", final_text)
+                st.session_state.generated_questions = final_text
                 st.rerun()
 
         # Answer on demand
