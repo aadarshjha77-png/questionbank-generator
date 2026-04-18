@@ -18,8 +18,8 @@ from datetime import datetime
 
 import pandas as pd
 
-SUPABASE_URL = "https://oslxddarixkoycukusvr.supabase.co"
-SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9zbHhkZGFyaXhrb3ljdWt1c3ZyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY1MDg1NzUsImV4cCI6MjA5MjA4NDU3NX0.kvTDceKAYW_MVHto30I4Qfbm9kipcE_DenP2pW0OmSs"
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
