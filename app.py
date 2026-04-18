@@ -12,16 +12,20 @@ from utils.pdf_parser import Chapter, extract_chapters_from_pdf
 
 import base64
 
-from supabase import create_client
-
-from datetime import datetime
-
-import pandas as pd
+from supabase import create_client, Client
+import os
 
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 
-supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+if not SUPABASE_URL or not SUPABASE_KEY:
+    raise ValueError("Supabase URL or KEY missing")
+
+supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+
+from datetime import datetime
+
+import pandas as pd
 
 # session init
 if "logged_in" not in st.session_state:
