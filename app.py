@@ -12,39 +12,16 @@ from utils.pdf_parser import Chapter, extract_chapters_from_pdf
 
 import base64
 
-import sqlite3
+from supabase import create_client
+
 from datetime import datetime
 
 import pandas as pd
 
-# DB connect
-conn = sqlite3.connect("users.db", check_same_thread=False)
-c = conn.cursor()
+SUPABASE_URL = "https://oslxddarixkoycukusvr.supabase.co"
+SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9zbHhkZGFyaXhrb3ljdWt1c3ZyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY1MDg1NzUsImV4cCI6MjA5MjA4NDU3NX0.kvTDceKAYW_MVHto30I4Qfbm9kipcE_DenP2pW0OmSs"
 
-# Table create
-c.execute("""
-CREATE TABLE IF NOT EXISTS users (
-    username TEXT,
-    password TEXT
-)
-""")
-
-c.execute("""
-CREATE TABLE IF NOT EXISTS question_logs (
-    username TEXT,
-    topic TEXT,
-    timestamp TEXT
-)
-""")
-
-c.execute("""
-CREATE TABLE IF NOT EXISTS login_logs (
-    username TEXT,
-    time TEXT
-)
-""")
-
-conn.commit()
+supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 # session init
 if "logged_in" not in st.session_state:
@@ -79,35 +56,36 @@ if not st.session_state.logged_in:
                 st.session_state.username = username
                 st.session_state.is_admin = True
 
-                c.execute(
-                    "INSERT INTO login_logs VALUES (?, ?)",
-                    (username, str(datetime.now()))
-                )
-                conn.commit()
+                supabase.table("login_logs").insert({
+                    "username": username,
+                    "time": str(datetime.now())
+                }).execute()
                 st.success("Admin login successful")
                 st.rerun()
 
             # 🔥 USER LOGIN FROM DB
-            c.execute(
-                "SELECT * FROM users WHERE username=? AND password=?",
-                (username, password)
-            )
-            result = c.fetchone()
+            res = supabase.table("users")\
+                .select("*")\
+                .eq("username", username)\
+                .eq("password", password)\
+                .execute()
 
-            if result:
+            if res.data:
                 st.session_state.logged_in = True
                 st.session_state.username = username
 
-                c.execute(
-                    "INSERT INTO login_logs VALUES (?, ?)",
-                    (username, str(datetime.now()))
-                )
-                conn.commit()
+                # ✅ LOGIN LOG SAVE (SUPABASE)
+                supabase.table("login_logs").insert({
+                    "username": username,
+                    "time": str(datetime.now())
+                }).execute()
 
                 st.success("Login successful")
                 st.rerun()
+
             else:
                 st.error("Invalid credentials")
+
 
     # SIGNUP TAB
     with tab2:
@@ -121,8 +99,10 @@ if not st.session_state.logged_in:
             new_user = new_user.strip().lower()
             new_pass = new_pass.strip()
 
-            c.execute("INSERT INTO users VALUES (?, ?)", (new_user, new_pass))
-            conn.commit()
+            supabase.table("users").insert({
+                "username": new_user,
+                "password": new_pass
+            }).execute()
 
             st.success("Account created!")
 
@@ -138,59 +118,71 @@ if st.session_state.get("show_analytics") and st.session_state.is_admin:
     # 🔥 1. LOGIN ANALYTICS
     # ===============================
     st.subheader("🔐 Login Analytics")
+    
+    res = supabase.table("login_logs").select("*").execute()
+    data = res.data
 
-    c.execute("SELECT username, COUNT(*) FROM login_logs GROUP BY username")
-    data = c.fetchall()
+    df = pd.DataFrame(data)
+    df = df["username"].value_counts().reset_index()
+    df.columns = ["User", "Login Count"]
 
-    df = pd.DataFrame(data, columns=["User", "Login Count"])
     st.bar_chart(df.set_index("User"))
+
 
     # ===============================
     # 🔥 2. ACTIVE USERS (TODAY)
     # ===============================
     st.subheader("🟢 Active Users (Today)")
 
-    c.execute("""
-    SELECT COUNT(DISTINCT username)
-    FROM login_logs
-    WHERE date(time) = date('now')
-    """)
+    today = str(datetime.now().date())
 
-    active_users = c.fetchone()[0]
+    res = supabase.table("login_logs").select("*").execute()
+
+    data = [d for d in res.data if d["time"].startswith(today)]
+
+    active_users = len(set([d["username"] for d in data]))
+
     st.metric("Active Users Today", active_users)
 
     # ===============================
     # 🔥 3. QUESTION GENERATION ANALYTICS
     # ===============================
     st.subheader("📝 Question Generation Analytics")
+    
+    res = supabase.table("question_logs").select("*").execute()
 
-    c.execute("""
-    SELECT username, COUNT(*) 
-    FROM question_logs 
-    GROUP BY username
-    """)
+    data = res.data
 
-    data = c.fetchall()
-    df = pd.DataFrame(data, columns=["User", "Questions Generated"])
+    if data and "username" in data[0]:
+        df = pd.DataFrame(data)
 
-    st.bar_chart(df.set_index("User"))
+        df = df["username"].value_counts().reset_index()
+        df.columns = ["User", "Questions Generated"]
+
+        st.bar_chart(df.set_index("User"))
+    else:
+        st.warning("No data found for analytics")
+
+    df.columns = ["User", "Questions Generated"]
 
     # ===============================
     # 🔥 4. MOST USED TOPICS
     # ===============================
     st.subheader("🔥 Most Used Topics")
 
-    c.execute("""
-    SELECT topic, COUNT(*) 
-    FROM question_logs 
-    GROUP BY topic
-    ORDER BY COUNT(*) DESC
-    """)
+    data = res.data
 
-    data = c.fetchall()
-    df = pd.DataFrame(data, columns=["Topic", "Usage Count"])
+    if data and "topic" in data[0]:
+        df = pd.DataFrame(data)
 
-    st.bar_chart(df.set_index("Topic"))
+        df = df["topic"].value_counts().reset_index()
+        df.columns = ["Topic", "Usage Count"]
+
+        st.bar_chart(df.set_index("Topic"))
+    else:
+        st.warning("No topic data found")
+        df.columns = ["Topic", "Usage Count"]
+
     st.stop() 
 
 CSS = """
@@ -349,12 +341,14 @@ if st.session_state.is_admin:
 else:
     st.sidebar.info(f"USER : {st.session_state.username}")
 
-if st.session_state.username == "admin":
+if st.session_state.is_admin:
     if st.sidebar.button("View Login History"):
-        c.execute("SELECT * FROM login_logs")
-        data = c.fetchall()
+        res = supabase.table("login_logs").select("*").execute()
+        data = res.data
+
         st.subheader("📊 Login History")
         st.table(data)
+        
 
 if st.session_state.is_admin:
     if st.sidebar.button("📊 Analytics Dashboard"):
@@ -1000,11 +994,11 @@ elif st.session_state.step == 2:
                         ],
                     )
 
-                    c.execute(
-                        "INSERT INTO question_logs VALUES (?, ?, ?)",
-                        (st.session_state.username, st.session_state.topic, str(datetime.now()))
-                    )
-                    conn.commit()
+                    supabase.table("question_logs").insert({
+                        "username": st.session_state.username,
+                        "topic": st.session_state.topic,
+                        "timestamp": str(datetime.now())
+                    }).execute()
 
                     text = (resp.output_text or "").strip()
                     
