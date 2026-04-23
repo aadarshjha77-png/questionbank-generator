@@ -1,29 +1,51 @@
 from __future__ import annotations
 
+import streamlit as st
+import base64
+import random
+import pandas as pd
+
+from supabase import create_client
+from datetime import datetime
+
+
 import os
 import re
 from typing import Any, Dict, List, Optional
 
-import streamlit as st
 from openai import OpenAI
 
 from config import load_settings
 from utils.pdf_parser import Chapter, extract_chapters_from_pdf
-
-import base64
-
-from supabase import create_client
-
-from datetime import datetime
-
-import pandas as pd
 
 SUPABASE_URL = "https://oslxddarixkoycukusvr.supabase.co"
 SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9zbHhkZGFyaXhrb3ljdWt1c3ZyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY1MDg1NzUsImV4cCI6MjA5MjA4NDU3NX0.kvTDceKAYW_MVHto30I4Qfbm9kipcE_DenP2pW0OmSs"
 
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-# session init
+import smtplib
+from email.mime.text import MIMEText
+
+# ================== EMAIL ==================
+def send_otp_email(to_email, otp):
+    sender_email = "queforge@gmail.com"
+    app_password = "vhgxjbhzhohiykhh"
+
+    msg = MIMEText(f"Dear User , \nYour One-Time Password(OTP) is : {otp} \nPlease use this OTP to complete your login process.\n*Do not share this code with anyone.\nThank you QUEFORGE TEAM")
+    msg['Subject'] = "Password Reset OTP"
+    msg['From'] = sender_email
+    msg['To'] = to_email
+
+    try:
+        server = smtplib.SMTP('smtp.gmail.com', 587)
+        server.starttls()
+        server.login(sender_email, app_password)
+        server.send_message(msg)
+        server.quit()
+    except Exception as e:
+        st.error(f"Email error: {e}")
+
+# ================== SESSION ==================
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
 
@@ -33,37 +55,56 @@ if "username" not in st.session_state:
 if "is_admin" not in st.session_state:
     st.session_state.is_admin = False
 
-# NOT LOGGED IN → LOGIN + SIGNUP
+if "show_forget" not in st.session_state:
+    st.session_state.show_forget = False
+
+if "otp_verified" not in st.session_state:
+    st.session_state.otp_verified = False
+
+# ================== PAGE ==================
+st.set_page_config(layout="centered")
+
+# ================== MAIN FLOW ==================
 if not st.session_state.logged_in:
+
+    col1, col2, col3 = st.columns([1,5,1])
+
+    with col2:
+        st.image("assets/logo.png", width=450)
+
+    st.markdown("<br>", unsafe_allow_html=True)
 
     tab1, tab2 = st.tabs(["Log In", "Sign Up"])
 
-    # LOGIN TAB
+    # ================== LOGIN ==================
     with tab1:
-        st.title("🔐 Welcome Back!")
+
+        st.header("🔐 Welcome Back!")
 
         username = st.text_input("Username", key="login_user")
         password = st.text_input("Password", type="password", key="login_pass")
 
-        if st.button("Login", key="login_btn"):
+        login_clicked = st.button("Login")
 
+        forgot_clicked = st.button("Forgot Password") 
+
+        # FORGOT CLICK
+        if forgot_clicked:
+            st.session_state.show_forget = True
+
+        # LOGIN LOGIC
+        if login_clicked:
             username = username.strip().lower()
             password = password.strip()
 
-            # 🔥 ADMIN LOGIN
+            # ADMIN LOGIN
             if username == "admin" and password == "7777":
                 st.session_state.logged_in = True
                 st.session_state.username = username
                 st.session_state.is_admin = True
-
-                supabase.table("login_logs").insert({
-                    "username": username,
-                    "time": str(datetime.now())
-                }).execute()
                 st.success("Admin login successful")
                 st.rerun()
 
-            # 🔥 USER LOGIN FROM DB
             res = supabase.table("users")\
                 .select("*")\
                 .eq("username", username)\
@@ -73,42 +114,81 @@ if not st.session_state.logged_in:
             if res.data:
                 st.session_state.logged_in = True
                 st.session_state.username = username
-
-                # ✅ LOGIN LOG SAVE (SUPABASE)
-                supabase.table("login_logs").insert({
-                    "username": username,
-                    "time": str(datetime.now())
-                }).execute()
-
                 st.success("Login successful")
                 st.rerun()
-
             else:
                 st.error("Invalid credentials")
 
+        # ================== FORGOT PASSWORD ==================
+        if st.session_state.show_forget:
 
-    # SIGNUP TAB
+            st.markdown("---")
+            st.markdown("## 🔐 Reset Password")
+
+            email = st.text_input("Enter your email", key="reset_email")
+
+            if st.button("Send OTP"):
+                res = supabase.table("users").select("*").eq("email", email).execute()
+
+                if not res.data:
+                    st.error("Email not registered")
+                else:
+                    otp = str(random.randint(100000, 999999))
+                    st.session_state.otp = otp
+                    st.session_state.reset_email_value = email
+
+                    send_otp_email(email, otp)
+                    st.success("OTP sent")
+
+            entered_otp = st.text_input("Enter OTP", key="otp_input")
+
+            if st.button("Verify OTP"):
+                if entered_otp == st.session_state.get("otp"):
+                    st.session_state.otp_verified = True
+                    st.success("OTP Verified")
+                else:
+                    st.error("Wrong OTP")
+
+            if st.session_state.otp_verified:
+                new_pass = st.text_input("New Password", type="password")
+
+                if st.button("Reset Password"):
+                    supabase.table("users").update({
+                        "password": new_pass
+                    }).eq("email", st.session_state.reset_email_value).execute()
+
+                    st.success("Password updated!")
+
+                    st.session_state.show_forget = False
+                    st.session_state.otp_verified = False
+                    st.session_state.otp = None
+
+    # ================== SIGNUP ==================
     with tab2:
-        st.title("📝 Let's Get Started")
 
-        new_user = st.text_input("New Username", key="reg_user")
-        new_pass = st.text_input("New Password", type="password", key="reg_pass")
+        st.header("📝 Let's Get Started")
 
-        if st.button("Create Account", key="signup_btn"):
+        new_user = st.text_input("Username", key="reg_user")
+        new_pass = st.text_input("Password", type="password", key="reg_pass")
+        email = st.text_input("Email", key="reg_email")
 
+        if st.button("Create Account"):
             new_user = new_user.strip().lower()
             new_pass = new_pass.strip()
 
             supabase.table("users").insert({
                 "username": new_user,
-                "password": new_pass
+                "password": new_pass,
+                "email": email
             }).execute()
 
             st.success("Account created!")
+        st.stop()
 
-    st.stop()  
-
-import pandas as pd
+# ================== AFTER LOGIN ==================
+else:
+    st.title("🏠 QUEFORGE DASHBOARD")
+    st.success(f"Welcome {st.session_state.username}")
 
 if st.session_state.get("show_analytics") and st.session_state.is_admin:
 
@@ -194,6 +274,7 @@ html, body, [class*="css"]  {
 }
 
 .block-container { padding-top: 3.5rem; padding-bottom: 2rem; }
+
 
 /* 🔥 TOP CENTER IMAGE */
 .qb-top-img {
