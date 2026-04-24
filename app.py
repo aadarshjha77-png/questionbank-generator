@@ -77,8 +77,6 @@ if not st.session_state.logged_in:
 
     st.markdown("</div>", unsafe_allow_html=True)
 
-    st.markdown("<br>", unsafe_allow_html=True)
-
     tab1, tab2 = st.tabs(["Log In", "Sign Up"])
 
     # ================== LOGIN ==================
