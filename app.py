@@ -443,7 +443,7 @@ if st.sidebar.button("Logout"):
 
 
 #  ORIGINAL APP START 
-
+st.set_page_config(layout="wide")
 st.markdown(CSS, unsafe_allow_html=True)
 
 
