@@ -62,7 +62,8 @@ if "otp_verified" not in st.session_state:
     st.session_state.otp_verified = False
 
 # ================== PAGE ==================
-st.set_page_config(layout="centered")
+
+
 
 # ================== MAIN FLOW ==================
 if not st.session_state.logged_in:
@@ -442,6 +443,7 @@ if st.sidebar.button("Logout"):
 
 
 #  ORIGINAL APP START 
+
 st.markdown(CSS, unsafe_allow_html=True)
 
 
