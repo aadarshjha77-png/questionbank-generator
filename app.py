@@ -75,8 +75,6 @@ if not st.session_state.logged_in:
 
     st.image("assets/logo.png", width=700)
 
-    st.markdown("</div>", unsafe_allow_html=True)
-
     tab1, tab2 = st.tabs(["Log In", "Sign Up"])
 
     # ================== LOGIN ==================
