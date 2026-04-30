@@ -4,3 +4,7 @@ __pycache__/
 output/
 .env
 users.db
+venv/
+.DS_Store
+.vscode/
+.devcontainer/
