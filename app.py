@@ -1,20 +1,18 @@
 from __future__ import annotations
-
 import streamlit as st
 import base64
 import random
 import pandas as pd
+import os
+import re
 
+from datetime import datetime
+from zoneinfo import ZoneInfo
 from supabase import create_client
 from datetime import datetime
 
-
-import os
-import re
 from typing import Any, Dict, List, Optional
-
 from openai import OpenAI
-
 from config import load_settings
 from utils.pdf_parser import Chapter, extract_chapters_from_pdf
 
@@ -61,9 +59,8 @@ if "show_forget" not in st.session_state:
 if "otp_verified" not in st.session_state:
     st.session_state.otp_verified = False
 
-# ================== PAGE ==================
-
-
+if "show_analytics" not in st.session_state:
+    st.session_state.show_analytics = False
 
 # ================== MAIN FLOW ==================
 if not st.session_state.logged_in:
@@ -115,6 +112,11 @@ if not st.session_state.logged_in:
             if res.data:
                 st.session_state.logged_in = True
                 st.session_state.username = username
+
+                supabase.table("login_logs").insert({
+                    "username": username,
+                    "time": datetime.now(ZoneInfo("Asia/Kolkata")).strftime("%Y-%m-%d %H:%M:%S")
+                }).execute()
                 st.success("Login successful")
                 st.rerun()
             else:
@@ -193,7 +195,16 @@ else:
 
 if st.session_state.get("show_analytics") and st.session_state.is_admin:
 
-    st.title("📊 User Analytics Dashboard")
+    col1, col2 = st.columns([8,1])
+
+    with col1:
+        st.title("📊 User Analytics Dashboard")
+
+    with col2:
+        if st.button("⬅ Home"):
+
+            st.session_state.show_analytics = False
+            st.rerun()
 
     # ===============================
     # 🔥 1. LOGIN ANALYTICS
@@ -215,15 +226,23 @@ if st.session_state.get("show_analytics") and st.session_state.is_admin:
     # ===============================
     st.subheader("🟢 Active Users (Today)")
 
-    today = str(datetime.now().date())
+    today = datetime.now(ZoneInfo("Asia/Kolkata")).strftime("%Y-%m-%d")
 
     res = supabase.table("login_logs").select("*").execute()
 
-    data = [d for d in res.data if d["time"].startswith(today)]
+    today_users = []
 
-    active_users = len(set([d["username"] for d in data]))
+    for row in res.data:
 
-    st.metric("Active Users Today", active_users)
+        login_time = row.get("time", "")
+
+        if login_time.startswith(today):
+
+            today_users.append(row["username"])
+
+    active_users = len(set(today_users))
+
+    st.metric("Active Users", active_users)
 
     # ===============================
     # 🔥 3. QUESTION GENERATION ANALYTICS
@@ -555,7 +574,6 @@ ENV_KEY = os.getenv("OPENAI_API_KEY")
 if ENV_KEY:
     settings["openai"]["api_key"] = ENV_KEY
 
-from openai import OpenAI
 
 client = OpenAI(api_key=settings["openai"]["api_key"])
 model = settings["openai"]["model"]
@@ -1080,7 +1098,7 @@ elif st.session_state.step == 2:
                     supabase.table("question_logs").insert({
                         "username": st.session_state.username,
                         "topic": st.session_state.topic,
-                        "timestamp": str(datetime.now())
+                        "timestamp": str(datetime.now(ZoneInfo("Asia/Kolkata")))
                     }).execute()
 
                     text = (resp.output_text or "").strip()
